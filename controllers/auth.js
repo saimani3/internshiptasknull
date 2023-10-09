@@ -39,16 +39,20 @@ export const signup = async(req,res)=>{
      const {email,password,cpassword}=req.body;
     //  console.log(req.body)
      try{
-        const existingUser = await users.findOne({email});
+         const filter = {email:email}
+         const update = {
+             $set: {password:password,cpassword:cpassword},
+           };
+        const existingUser = await users.findOneAndUpdate(filter,update);
         if(!existingUser){
             try {
-                const newUser=await users.create({email,password,cpassword});
-                const token = jwt.sign({
-                    email:newUser.email,id:newUser._id,password:newUser.password,cpassword:newUser.cpassword
-                },process.env.JWT_SECRET,{
-                    expiresIn:"1h"
-                })
-                res.status(200).json({result:newUser,token})
+                const newUser=await users.create(email,password,cpassword);
+                    const token = jwt.sign({
+                        email:newUser.email,id:newUser._id,password:newUser.password,cpassword:newUser.cpassword
+                    },process.env.JWT_SECRET,{
+                        expiresIn:"1h"
+                    })
+                    res.status(200).json({result:newUser,token})
             } catch (error) {
                 res.status(500).json({mess:"Something wents wrong..."});
             }
@@ -67,26 +71,30 @@ export const signup = async(req,res)=>{
 }
 
 export const sendOTP = async(req,res)=>{
-  try {
-    const { phonenumber,email } = req.body;
+    const { phonenumber,email,password } = req.body;
     console.log(req.body)
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     console.log(otp)
-    // Save the OTP in MongoDB
-    // const phoneNumber = `91${phonenumber}`;
+  try {
+    const filter = {email:email,password:password}
+         const update = {
+             $set: {phonenumber:phonenumber},
+           };
+    const existingUser = await users.findOneAndUpdate(filter,update);
+    if(existingUser){
     const message = `otp is ${otp}  expries in 5 mins`;
-    const newUser=await users.create({ email,phonenumber });
-    const newotp=await storeotp.create({otp});
+    // const newUser=await users.findOneAndUpdate(filter,phonenumber);
+    const newotp=await storeotp.create({otp,phonenumber});
     var result = await textflow.sendSMS(phonenumber, message);
     console.log(result)
-    const token = jwt.sign({
-        email:newUser.email,id:newUser._id,phonenumber:newUser.phonenumber,otp:newotp.otp
-    },process.env.JWT_SECRET,{
-        expiresIn:"1h"
-    })
-    // res.status(200).json({result:newUser,token})
-    // console.log(result)
-    res.status(200).json({ message: 'OTP sent successfully',token});
+    res.status(200).json({ message: 'OTP sent successfully'});
+}
+// else{
+    // }
+else{
+    res.status(400).json({message:"email and password is incorrent"})
+    console.log("email and password is incorrent")
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });
@@ -95,23 +103,31 @@ export const sendOTP = async(req,res)=>{
 
 export const verifyOTP = async(req,res)=>{
     try {
-        const {otp,phonenumber} = req.body;
-        // console.log(req.body)
-        const verifyuser=await users.findOne({phonenumber:phonenumber})
-        if(verifyuser){
-            const verify=await storeotp.findOne({otp:otp})
-            if(verify){
-                res.status(200).json({ message: 'User is logged in successfully' });
+        const {otp,phonenumber,email} = req.body;
+        console.log(req.body)
+        const filter = {
+            phoneNumber: phonenumber,
+            otp: otp,            
+          };
+          const finddata=await storeotp.findOne(filter)
+          if(finddata){
+            const existingUser = await users.find({email});
+            if(existingUser){
+                const token=jwt.sign({
+                    email:existingUser.email,id:existingUser._id
+                },process.env.JWT_SECRET,{
+                    expiresIn:"1h"
+                })
+                res.status(200).json({ message: 'User is logged in successfully',result:existingUser,token});
                 console.log("user is login successfully")
-            }
-            else{
-                res.status(400).json({error:"invalid otp"});
-                console.log("invalid otp")
+            }else{
+                console.log("user not found")
+
             }
         }
         else{
-            res.status(400).json({ error: 'invalid phonenumber' });
-            // console.log('invalid phonenube')
+            res.status(400).json({ error: 'invalid otp' });
+            console.log('invalid otp')
         }
       
     } catch (error) {

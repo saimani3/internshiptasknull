@@ -14,6 +14,10 @@ const userSchema = mongoose.Schema({
       blockedUntil: {
         type: Date,
       },
+    active:{
+      type:Number,
+      default: 1,
+    },
     joinedOn:{type:Date,default:Date.now}
 
 })
